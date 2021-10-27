@@ -7,6 +7,7 @@ library(writexl)
 library(tibble)
 library(scales)
 library(viridis)
+library(tidyr)
 
 Compare<-"Disease"
 threshold <- 3
@@ -18,9 +19,9 @@ mapping<-mapping[!duplicated(mapping$PROBEID), ]
 rownames(mapping)<-mapping$PROBEID
 mapping <- subset(mapping, select = -PROBEID)
 
-rawCounts <- data.frame(read_excel("rawCounts2.xlsx"))
+rawCounts <- data.frame(read_excel("RawCounts.xlsx"))
 
-sampleData <- data.frame(read_excel("sampleData2.xlsx"))
+sampleData <- data.frame(read_excel("SampleData.xlsx"))
 sampleData <- as.data.frame(apply(sampleData, 2, function(x) gsub("\\s+", "_", x)))
 
 ProbeID <- rawCounts$ProbeID
