@@ -9,19 +9,20 @@ library(scales)
 library(viridis)
 library(tidyr)
 
-Compare<-"Disease"
-threshold <- 3
+rawCountsFile <- "RawCounts.xlsx"
+sampleDataFile <- "SampleData.xlsx"
+Compare <- "Disease"
+threshold <- 5
 
 k <- keys(hgu133plus2.db,keytype="PROBEID")
 mapping<-AnnotationDbi::select(hgu133plus2.db, keys=k, columns=c("SYMBOL"), keytype="PROBEID")
 mapping<-mapping[!duplicated(mapping$PROBEID), ]
-
 rownames(mapping)<-mapping$PROBEID
 mapping <- subset(mapping, select = -PROBEID)
 
-rawCounts <- data.frame(read_excel("RawCounts.xlsx"))
+rawCounts <- data.frame(read_excel(rawCountsFile))
+sampleData <- data.frame(read_excel(sampleDataFile))
 
-sampleData <- data.frame(read_excel("SampleData.xlsx"))
 sampleData <- as.data.frame(apply(sampleData, 2, function(x) gsub("\\s+", "_", x)))
 
 ProbeID <- rawCounts$ProbeID
@@ -38,8 +39,7 @@ sampleData[[Compare]] <- factor(sampleData[[Compare]])
 rawCounts <- rawCounts[,unique(rownames(sampleData))]
 print(all(colnames(rawCounts) == rownames(sampleData)))
 
-#sampleData[[Compare]] <- factor(sampleData[[Compare]], levels=unique(sampleData[[Compare]]))
-sampleData[[Compare]] <- factor(sampleData[[Compare]], levels=c("normal","invasive_ductal_carcinoma"))
+sampleData[[Compare]] <- factor(sampleData[[Compare]], levels=unique(sampleData[[Compare]]))
 
 exp_raw <- log2(rawCounts)
 PCA_raw <- prcomp(t(exp_raw), scale. = FALSE)
@@ -62,14 +62,13 @@ ggplot(dataGG, aes(PC1, PC2)) +
   coord_fixed(ratio = sd_ratio) +
   scale_shape_manual(values = c(4,15))
 
-ggsave("my_PCA.pdf")
+ggsave("PCA.pdf")
 
 ggplot(stack(data.frame(exp_raw)), aes(x = ind, y = values, fill=ind)) +
   xlab("") +ylab("")  + theme(legend.position = "none") + geom_boxplot(outlier.size = 0.1) +  
   labs(title="Boxplot of log2-intensitites for the raw data") 
 
-ggsave("my_boxplot_log2_intensities.pdf")
-
+ggsave("boxplot_log2_intensities.pdf")
 
 my_deseq2Data <- DESeqDataSetFromMatrix(countData=rawCounts, colData=sampleData, design= ~ Disease)
 my_deseq2Data <- my_deseq2Data[rowSums(counts(my_deseq2Data)) > threshold, ]
@@ -89,7 +88,7 @@ ggplot2::ggplot(RLE_data_gathered, aes(x = sample_array, y = log_expr_dev, fill=
   coord_cartesian(ylim = quantile(RLE_data_gathered$log_expr_dev, c(0.05, 0.95))) + 
   labs(title="Boxplot of log2-expression deviation")
 
-ggsave("my_boxplot_log2_expression_deviation.pdf")
+ggsave("boxplot_log2_expression_deviation.pdf")
 
 exp <- counts(my_deseq2Data, normalized=TRUE)
 PCA <- prcomp(t(exp), scale = FALSE)
@@ -112,7 +111,7 @@ ggplot(dataGG, aes(PC1, PC2)) +
   coord_fixed(ratio = sd_ratio) +
   scale_shape_manual(values = c(4,15))
 
-ggsave("my_PCA_normalized.pdf")
+ggsave("PCA_normalized.pdf")
 
 annotation_for_heatmap <- data.frame("tmp" = sampleData[,Compare])
 colnames(annotation_for_heatmap) = c(Compare)
@@ -133,7 +132,7 @@ pheatmap(dists, col = (hmcol),
                            max(dists, na.rm = TRUE)), 
          legend_labels = (c("small distance", "large distance")),
          main = "Clustering heatmap",
-         filename="my_heatmap.pdf")
+         filename="heatmap.pdf")
 
 medians <- rowMedians(log2(exp))
 
@@ -143,16 +142,15 @@ hist_res <- hist(medians, 100, col = "cornsilk", freq = FALSE,
                  border = "antiquewhite4",
                  xlab = "Median intensities")
 
-abline(v = 5, col = "coral4", lwd = 3)
+abline(v = threshold, col = "coral4", lwd = 3)
 dev.off()
 
-my_deseq2Results <- results(my_deseq2Data, contrast=c("Disease", "normal", "invasive_ductal_carcinoma"))
+my_deseq2Results <- results(my_deseq2Data, contrast=c(Compare, levels(sampleData[[Compare]])))
 
 deseq2ResDF <- as.data.frame(my_deseq2Results)
 deseq2ResDF <- add_column(deseq2ResDF, SYMBOL = mapping[rownames(deseq2ResDF),], .after = 0)
 deseq2ResDF <- add_column(deseq2ResDF, PROBEID = rownames(deseq2ResDF), .after = 0)
 write_xlsx(deseq2ResDF, "DiffExprRes.xlsx")
-
 
 deseq2ResDF$significant <- ifelse(deseq2ResDF$padj < 0.1, "Significant", NA)
 
@@ -183,7 +181,6 @@ ggplot(deseq2ResDF, aes(log2FoldChange, baseMean, colour=padj)) +
   scale_colour_viridis(direction=-1, trans='sqrt') + theme_bw()
 
 ggsave("count_vs_fold.pdf")
-
 
 logdeseq2ResDF = deseq2ResDF
 logdeseq2ResDF$padj = -log10(logdeseq2ResDF$padj)
