@@ -1,0 +1,204 @@
+---
+title: "FastTrack user guide"
+output: html_notebook
+---
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+---
+
+
+## 1 Input files
+
+
+FastTrack needs two xlsx files to perform differential expression analysis :
+
+* rawCounts that contains the rawcounts of RNA strands
+* sampleData that contains information about the samples
+
+In the following, we describe the format that the two xlsx files must satisfy
+
+### rawCounts
+
+Below is an example of a simplified rawCounts.xlsx file with 2 genes and 2 samples.
+
+| PROBEID| Sample_1| Sample_2|
+| :------------- | :-------------| :-------------|
+| 1007_s_at| 96| 94|
+| 1053_at| 18630| 22545|
+
+The first column name must be **exactly** "PROBEID" and each row contains the PROBEID of the RNA strands.
+
+In this example, the RNA strands PROBEID are 1007_s_at and 1053_at.
+
+The other columns are associated with the samples.
+
+The columns names are the names of the samples and the row are the counts of the associated gene. 
+
+You can choose the names you want for the samples but they **MUST NOT** contain spaces.
+
+In this example, the strand 1007_s_at is observed 96 times in Sample_1 and 94 times in Sample_2.
+
+
+### sampleData
+
+Below is an example of a simplified sampleData.xlsx file with 2 samples and two properties.
+
+| SampleID| Disease| IndividualID|
+| :------------- | :-------------| :-------------| 
+| Sample_1| invasive ductal carcinoma| Individual_1|
+| Sample_2| normal| Individual_2|
+
+
+The first column name must be **exactly** "SampleID" and each row contains **the same sample name** as in the rawCount file.
+
+The other columns are associated with the samples' properties.
+
+The columns names are the names of the properties and the row are the value of the properties for the considered sample. 
+
+You can choose the name you want for the properties but they **MUST NOT** contain spaces.
+
+In this example, we have two properties : Disease and IndividualID.
+
+
+---
+
+## 2 Usage
+
+### Running FastTrack on RStudio
+
+In the following, we display R code used by FastTrack (code is in the grey cells, white cells displays the output of the code and does not need to be run).
+
+To run the code you have to open the RStudio project that was created during the installation and you can either:
+
+* Paste the code in RStudio console (bottom left panel) and press Enter
+* Or create a new R script (File -> New File -> R script) and paste the code in RStudio Source Editor (top left panel), select the code and click on Run (or press Ctrl+Enter).
+
+We recommend the second option as it allows for keeping all the code that was executed in one file, which makes it easier to run the code again and keep track of what was done.
+
+### Step 1 : Import libraries
+
+```{r}
+library(hgu133plus2.db)
+library(pheatmap)
+library(ggplot2)
+library(DESeq2)
+library(readxl)
+library(writexl)
+library(tibble)
+library(scales)
+library(viridis)
+library(tidyr)
+```
+
+### Step 2 : Import FastTrack functions
+
+```{r}
+source("utils.R")
+```
+
+### Step 3 : Input information needed by FastTrack
+
+To perform differential analysis, FastTrack needs 5 input values:
+
+* rawCountsFile that contains the location of the xlsx rawCounts file
+* sampleDataFile that contains the location of the xlsx sampleData file
+* Compare that contains the name of hte property that will be compared the analysis 
+* threshold that contains the minimal number of read count to keep the considered gene/transcript
+* saveFolder that contains the location of the folder where the results will be saved
+
+
+```{r}
+rawCountsFile <- "RawCounts.xlsx"
+sampleDataFile <- "SampleData.xlsx"
+Compare <- "Disease"
+threshold <- 30
+saveFolder <- "Results"
+```
+
+
+### Step 4 : Set up raw plots
+Below we, create the result folder and create a mapping between PROBEID and gene SYMBOL.
+
+```{r}
+dir.create(saveFolder)
+mapping <- build_mapping()
+```
+The message <mark>_'select()' returned 1:many mapping between keys and columns_</mark> should be displayed. It means that the mapping between PROBEID and SYMBOL was successful.
+
+
+We read the xlsx files and make sure that the sample names are the same between the two files.
+```{r}
+rawData <- read_raw_data(rawCountsFile, sampleDataFile)
+```
+The message <mark>_[1] TRUE_</mark> should be displayed after reading the raw data. If not it means that the sample names in the rawCount file and in the sampleData file are different.
+
+We apply a log2 transformation to the raw counts that will be used for the future plots.
+```{r}
+logRawCounts <- log2(rawData$rawCounts)
+```
+
+### Step 5 : Generate PCA
+
+```{r}
+PCA(logRawCounts, rawData$sampleData, Compare, saveFolder)
+```
+
+### Step 6 : Generate boxplot of the log2 intensities
+
+```{r}
+box_intensities(logRawCounts, saveFolder)
+
+```
+
+
+### Step 7 : Normalize raw counts and plot the histogram of normalized intensities
+
+```{r}
+deseq2Data <- make_DEseq2DataSet(rawData$rawCounts, rawData$sampleData, Compare, threshold, saveFolder)
+```
+The red vertical line is positioned at the log2 of the threshold defined by the user. Everything left to this bar is not taken into account for the differential analysis.
+
+### Step 8 : Generate boxplot of the deviations
+
+```{r}
+box_deviation(deseq2Data, saveFolder)
+```
+
+
+### Step 9 : Normalized PCA
+
+```{r}
+normalized_counts <- log2(counts(deseq2Data, normalized=TRUE))
+normalized_PCA(normalized_counts, rawData$sampleData, Compare, saveFolder)
+
+```
+
+### Step 10 : Plot the Heatmap
+
+```{r}
+heatmap(normalized_counts, rawData$sampleData, Compare, saveFolder)
+```
+
+
+### Step 11 : Perform differential analysis ans save the results in DiffExprRes.xlsx
+
+```{r}
+deseq2ResDF <- diff_Analysis(deseq2Results, deseq2Data, rawData$sampleData, Compare, mapping, saveFolder)
+```
+
+
+### Step 12 : Plot the results of the differential analysis in 3 figures
+
+```{r}
+fold_vs_count(deseq2ResDF, saveFolder)
+```
+
+```{r}
+count_vs_fold(deseq2ResDF, saveFolder)
+```
+
+```{r}
+volcano(deseq2ResDF, saveFolder)
+```
