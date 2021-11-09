@@ -27,7 +27,7 @@ threshold <- 30
 saveFolder <- "Results"
 dir.create(saveFolder)
 
-mapping <- build_mapping()
+mapping <- build_mapping('PROBEID')
 
 rawData <- read_raw_data(rawCountsFile, sampleDataFile)
 logRawCounts <- log2(rawData$rawCounts)

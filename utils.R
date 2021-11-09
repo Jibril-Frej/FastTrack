@@ -1,10 +1,10 @@
-# Creates and returns a mapping between PROBEID and SYMBOL 
-build_mapping <- function(){
-  k <- keys(hgu133plus2.db,keytype="PROBEID")
-  mapping<-AnnotationDbi::select(hgu133plus2.db, keys=k, columns=c("SYMBOL"), keytype="PROBEID")
-  mapping<-mapping[!duplicated(mapping$PROBEID), ]
-  rownames(mapping)<-mapping$PROBEID
-  mapping <- subset(mapping, select = -PROBEID)
+# Creates and returns a mapping between RNA_ID and SYMBOL 
+build_mapping <- function(ID_TYPE){
+  k <- keys(hgu133plus2.db,keytype=ID_TYPE)
+  mapping<-AnnotationDbi::select(hgu133plus2.db, keys=k, columns=c("GENENAME"), keytype=ID_TYPE)
+  mapping<-mapping[!duplicated(mapping[[ID_TYPE]]), ]
+  rownames(mapping) <- mapping[[ID_TYPE]]
+  mapping <- subset(mapping, select = -get(ID_TYPE))
   return(mapping)
 }
 
@@ -15,10 +15,10 @@ read_raw_data <- function(rawCountsFile, sampleDataFile){
   rawCounts <- data.frame(read_excel(rawCountsFile))
   sampleData <- data.frame(read_excel(sampleDataFile))
   
-  # Changes rawCounts into a matrix for DESEQ2 and use PROBEID as rownames
-  ProbeID <- rawCounts$ProbeID
-  rawCounts <- as.matrix(subset(rawCounts, select = -ProbeID))
-  rownames(rawCounts) <- ProbeID
+  # Changes rawCounts into a matrix for DESEQ2 and use RNA_ID as rownames
+  RNA_ID <- rawCounts$RNA_ID
+  rawCounts <- as.matrix(subset(rawCounts, select = -RNA_ID))
+  rownames(rawCounts) <- RNA_ID
   
   
   # Replaces all spaces in sampleData with underscore (needed for DESEQ2)
@@ -75,10 +75,10 @@ PCA <- function(logRawCounts, sampleData, Compare, saveFolder){
 
 box_intensities <- function(logRawCounts, saveFolder){
   p <- ggplot(stack(data.frame(logRawCounts)), aes(x = ind, y = values, fill=ind)) +
-    xlab("") +ylab("log2-intensitites")  + theme(legend.position = "none") + geom_boxplot(outlier.size = 0.1) +  
-    labs(title="Boxplot of log2-intensitites for the raw data") 
+    xlab("") +ylab("log2 raw counts")  + theme(legend.position = "none") + geom_boxplot(outlier.size = 0.1) +  
+    labs(title="Boxplot of the log2 raw counts") 
   print(p)
-  ggsave(file.path(saveFolder, "boxplot_log2_intensities.pdf"))
+  ggsave(file.path(saveFolder, "boxplot_log2_raw_counts.pdf"))
 }
 
 
@@ -93,10 +93,11 @@ make_DEseq2DataSet <-function(rawCounts, sampleData, Compare, threshold, saveFol
   medians <- rowMedians(normalized_counts)
   
   #pdf(file.path(saveFolder, "hist_median_intensities.pdf"))
-  hist_res <- hist(medians, 100, col = "cornsilk", freq = FALSE,
-                   main = "Histogram of the median intensities",
+  hist_res <- hist(medians, 100, col = "cornsilk", freq = TRUE,
+                   main = "Histogram of the log2 normalized counts",
                    border = "antiquewhite4",
-                   xlab = "Median intensities")
+                   xlab = "Median normalized raw counts",
+                   ylab = "Number of RNA strands")
   abline(v = log2(threshold), col = "coral4", lwd = 3)
   #plot(hist_res)
   #dev.off()
@@ -121,14 +122,14 @@ box_deviation <- function(deseq2Data, saveFolder){
   RLE_data_gathered <- tidyr::gather(RLE_data, sample_array, log_expr_dev)
   
   p <- ggplot(RLE_data_gathered, aes(x = sample_array, y = log_expr_dev, fill=sample_array)) + 
-    xlab("") +ylab("")  + theme(legend.position = "none") +
+    xlab("") +ylab("deviation")  + theme(legend.position = "none") +
     geom_boxplot(outlier.shape = NA) + 
     coord_cartesian(ylim = quantile(RLE_data_gathered$log_expr_dev, c(0.05, 0.95))) + 
-    labs(title="Boxplot of log2-expression deviation")
+    labs(title="Boxplot of log2 normalized counts deviation")
   
   print(p)
   
-  ggsave(file.path(saveFolder, "boxplot_log2_expression_deviation.pdf"))
+  ggsave(file.path(saveFolder, "boxplot_normalized_deviation.pdf"))
   
 }
 
@@ -147,7 +148,7 @@ normalized_PCA <- function(normalized_counts, sampleData, Compare, saveFolder){
   
   p <- ggplot(dataGG, aes(PC1, PC2)) +
     geom_point(aes_string(shape = Compare)) +
-    ggtitle("PCA plot of the normalized expression data") +
+    ggtitle("PCA plot of the log2 normalized counts") +
     xlab(paste0("PC1, VarExp: ", percentVar[1], "%")) +
     ylab(paste0("PC2, VarExp: ", percentVar[2], "%")) +
     theme(plot.title = element_text(hjust = 0.5))+
@@ -178,7 +179,7 @@ heatmap <- function(normalized_counts, sampleData, Compare, saveFolder){
            legend = TRUE, 
            treeheight_row = 0,
            legend_breaks = c(min(dists, na.rm = TRUE), 
-                             max(dists, na.rm = TRUE)), 
+                             max(dists, na.rm = TRUE)),
            legend_labels = (c("small distance", "large distance")),
            main = "Clustering heatmap")
   
@@ -191,8 +192,8 @@ diff_Analysis <- function(deseq2Results, deseq2Data, sampleData, Compare, mappin
   
   deseq2Results <- results(deseq2Data, contrast=c(Compare, levels(sampleData[[Compare]])))
   deseq2ResDF <- as.data.frame(deseq2Results)
-  deseq2ResDF <- add_column(deseq2ResDF, SYMBOL = mapping[rownames(deseq2ResDF),], .after = 0)
-  deseq2ResDF <- add_column(deseq2ResDF, PROBEID = rownames(deseq2ResDF), .after = 0)
+  deseq2ResDF <- add_column(deseq2ResDF, GENENAME = mapping[rownames(deseq2ResDF),], .after = 0)
+  deseq2ResDF <- add_column(deseq2ResDF, ID = rownames(deseq2ResDF), .after = 0)
   write_xlsx(deseq2ResDF, file.path(saveFolder, "DiffExprRes.xlsx"))
   deseq2ResDF$significant <- ifelse(deseq2ResDF$padj < 0.1, "Significant", NA)
   
