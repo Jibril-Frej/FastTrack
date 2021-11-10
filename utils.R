@@ -80,7 +80,8 @@ PCA <- function(logRawCounts, sampleData, Compare, saveFolder){
 box_intensities <- function(logRawCounts, saveFolder){
   p <- ggplot(stack(data.frame(logRawCounts)), aes(x = ind, y = values, fill=ind)) +
     xlab("") +ylab("log2 raw counts")  + theme(legend.position = "none") + geom_boxplot(outlier.size = 0.1) +  
-    labs(title="Boxplot of the log2 raw counts") 
+    labs(title="Boxplot of the log2 raw counts") +
+    theme(axis.text.x = element_text(angle = 90))
   print(p)
   ggsave(file.path(saveFolder, "boxplot_log2_raw_counts.pdf"))
 }
@@ -129,7 +130,8 @@ box_deviation <- function(deseq2Data, saveFolder){
     xlab("") +ylab("deviation")  + theme(legend.position = "none") +
     geom_boxplot(outlier.shape = NA) + 
     coord_cartesian(ylim = quantile(RLE_data_gathered$log_expr_dev, c(0.05, 0.95))) + 
-    labs(title="Boxplot of log2 normalized counts deviation")
+    labs(title="Boxplot of log2 normalized counts deviation")+
+    theme(axis.text.x = element_text(angle = 90))
   
   print(p)
   
