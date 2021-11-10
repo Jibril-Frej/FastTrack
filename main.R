@@ -12,10 +12,13 @@ library(tidyr)
 source("utils.R")
 
 # Path of the xlxs file containing the raw non-normalized sequence read counts at either the gene or transcript level
-rawCountsFile <- "RawCounts.xlsx"
+rawCountsFile <- "RawCounts2.xlsx"
 
 # Path of the xlxs file containing  the properties of the samples
-sampleDataFile <- "SampleData.xlsx"
+sampleDataFile <- "SampleData2.xlsx"
+
+# Indicates the type of RNA ID in the rawCountFile
+ID_TYPE <- "ENSEMBL"
 
 # Indicates which sample property to compare
 Compare <- "Disease"
@@ -27,17 +30,17 @@ threshold <- 30
 saveFolder <- "Results"
 dir.create(saveFolder)
 
-mapping <- build_mapping('PROBEID')
+mapping <- build_mapping(ID_TYPE)
 
 rawData <- read_raw_data(rawCountsFile, sampleDataFile)
-logRawCounts <- log2(rawData$rawCounts)
 
+logRawCounts <- log2(rawData$rawCounts+1)
 
 PCA(logRawCounts, rawData$sampleData, Compare, saveFolder)
 
 box_intensities(logRawCounts, saveFolder)
 
-deseq2Data <- make_DEseq2DataSet(rawData$rawCounts, rawData$sampleData, Compare, threshold)
+deseq2Data <- make_DEseq2DataSet(rawData$rawCounts, rawData$sampleData, Compare, threshold, saveFolder)
 
 box_deviation(deseq2Data, saveFolder)
 
