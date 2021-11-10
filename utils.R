@@ -13,7 +13,7 @@ build_mapping <- function(ID_TYPE){
 }
 
 # Read the xlsx files containing the raw counts and sample information and returns two objects taht DESEQ2 can process 
-read_raw_data <- function(rawCountsFile, sampleDataFile){
+read_raw_data <- function(rawCountsFile, sampleDataFile, order){
   
   # Read the xlsx files into data.frames
   rawCounts <- data.frame(read_excel(rawCountsFile))
@@ -25,8 +25,9 @@ read_raw_data <- function(rawCountsFile, sampleDataFile){
   rownames(rawCounts) <- RNA_ID
   
   
-  # Replaces all spaces in sampleData with underscore (needed for DESEQ2)
+  # Replaces all spaces in sampleData and in order with underscore (needed for DESEQ2)
   sampleData <- as.data.frame(apply(sampleData, 2, function(x) gsub("\\s+", "_", x)))
+  order <- gsub("\\s+", "_", order)
   
   # Use SampleID as rownames
   SampleID = sampleData$SampleID
@@ -39,7 +40,7 @@ read_raw_data <- function(rawCountsFile, sampleDataFile){
   rawCounts <- rawCounts[,unique(rownames(sampleData))]
   print(all(colnames(rawCounts) == rownames(sampleData)))
   
-  sampleData[[Compare]] <- factor(sampleData[[Compare]], levels=unique(sampleData[[Compare]]))
+  sampleData[[Compare]] <- factor(sampleData[[Compare]], levels=order)
   
   return(list(rawCounts = rawCounts, sampleData = sampleData))
   
