@@ -106,6 +106,7 @@ To perform differential analysis, FastTrack needs 5 input values:
 * *sampleDataFile* that contains the location of the xlsx sampleData file
 * *ID_TYPE* that contains the type of ID for the RNA strands in the rawCountsFile it must be one of the value displayed below
 * *Compare* that contains the name of the property that will be compared the analysis 
+* *order* a vector that contains the order of comparison of the properties values 
 * *threshold* that contains the minimal number of read count to keep the considered gene/transcript
 * *saveFolder* that contains the location of the folder where the results will be saved
 
@@ -115,6 +116,7 @@ rawCountsFile <- "RawCounts.xlsx"
 sampleDataFile <- "SampleData.xlsx"
 ID_TYPE <- "PROBEID"
 Compare <- "Disease"
+order <- c("normal", "invasive ductal carcinoma")
 threshold <- 30
 saveFolder <- "Results"
 ```
@@ -138,7 +140,7 @@ Below, we create the result folder and create a mapping between PROBEID and gene
 dir.create(saveFolder)
 mapping <- build_mapping(ID_TYPE)
 ```
-The message <mark>_'select()' returned 1:many mapping between keys and columns_</mark> should be displayed. It means that the mapping between PROBEID and SYMBOL was successful. 
+The messages <mark>_'select()' returned 1:many mapping between keys and columns_</mark> should be displayed. It means that the mappings were successful. 
 
 ----------------------------
 
@@ -154,7 +156,7 @@ print(columns(hgu133plus2.db))
 
 We read the xlsx files and make sure that the sample names are the same between the two files.
 ```{r}
-rawData <- read_raw_data(rawCountsFile, sampleDataFile)
+rawData <- read_raw_data(rawCountsFile, sampleDataFile, order)
 ```
 The message <mark>_[1] TRUE_</mark> should be displayed after reading the raw data. If not it means that the sample names in the rawCount file and in the sampleData file are different.
 
@@ -208,7 +210,7 @@ The boxplot above represents the deviation of normalized counts for each sample.
 ### Step 9 : Normalized PCA
 
 ```{r}
-normalized_counts <- log2(counts(deseq2Data, normalized=TRUE))
+normalized_counts <- log2(counts(deseq2Data, normalized=TRUE) +1)
 normalized_PCA(normalized_counts, rawData$sampleData, Compare, saveFolder)
 
 ```
@@ -273,3 +275,26 @@ volcano(deseq2ResDF, saveFolder)
 ```
 
 The plot is saved in the folder *saveFolder* as volcano.pdf 
+
+
+
+
+## 3 FAQ
+
+### 1) cannot open file ‘utils.R’: No such file or directory
+
+If you see the following error after executing source("utils.R") :
+
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
+</style>
+<div class = "blue">
+| source("utils.R")
+| Error in file(filename, "r", encoding = encoding) :
+|     cannot open the connection
+| In addition: Warning message:
+| In file(filename, "r", encoding = encoding) :
+|     cannot open file 'utils.R': No such file or directory
+</div>
+
+This error means that the file utils.R could not be found. Make sure the file utils.R is in the same folder as the project file (.Rproj).
