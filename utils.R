@@ -4,8 +4,12 @@ build_mapping <- function(ID_TYPE){
   mapping<-AnnotationDbi::select(hgu133plus2.db, keys=k, columns=c("GENENAME"), keytype=ID_TYPE)
   mapping<-mapping[!duplicated(mapping[[ID_TYPE]]), ]
   rownames(mapping) <- mapping[[ID_TYPE]]
-  mapping <- subset(mapping, select = -get(ID_TYPE))
-  return(mapping)
+  mapping_G <- subset(mapping, select = -get(ID_TYPE))
+  mapping<-AnnotationDbi::select(hgu133plus2.db, keys=k, columns=c("SYMBOL"), keytype=ID_TYPE)
+  mapping<-mapping[!duplicated(mapping[[ID_TYPE]]), ]
+  rownames(mapping) <- mapping[[ID_TYPE]]
+  mapping_S <- subset(mapping, select = -get(ID_TYPE))
+  return(list(mapping_G = mapping_G, mapping_S = mapping_S))
 }
 
 # Read the xlsx files containing the raw counts and sample information and returns two objects taht DESEQ2 can process 
@@ -192,7 +196,8 @@ diff_Analysis <- function(deseq2Results, deseq2Data, sampleData, Compare, mappin
   
   deseq2Results <- results(deseq2Data, contrast=c(Compare, levels(sampleData[[Compare]])))
   deseq2ResDF <- as.data.frame(deseq2Results)
-  deseq2ResDF <- add_column(deseq2ResDF, GENENAME = mapping[rownames(deseq2ResDF),], .after = 0)
+  deseq2ResDF <- add_column(deseq2ResDF, SYMBOL = mapping$mapping_S[rownames(deseq2ResDF),], .after = 0)
+  deseq2ResDF <- add_column(deseq2ResDF, GENENAME = mapping$mapping_G[rownames(deseq2ResDF),], .after = 0)
   deseq2ResDF <- add_column(deseq2ResDF, ID = rownames(deseq2ResDF), .after = 0)
   write_xlsx(deseq2ResDF, file.path(saveFolder, "DiffExprRes.xlsx"))
   deseq2ResDF$significant <- ifelse(deseq2ResDF$padj < 0.1, "Significant", NA)
