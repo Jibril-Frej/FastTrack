@@ -88,7 +88,7 @@ make_DEseq2DataSet <-function(rawCounts, sampleData, Compare, threshold, saveFol
                                           design=as.formula(paste("~", Compare, sep="")))
   deseq2Data <- DESeq(deseq2Data)
   
-  normalized_counts <- log2(counts(deseq2Data, normalized=TRUE))
+  normalized_counts <- log2(counts(deseq2Data, normalized=TRUE) +1)
   
   medians <- rowMedians(normalized_counts)
   
@@ -113,7 +113,7 @@ make_DEseq2DataSet <-function(rawCounts, sampleData, Compare, threshold, saveFol
 
 box_deviation <- function(deseq2Data, saveFolder){
   
-  normalized_counts<-log2(counts(deseq2Data, normalized=TRUE))
+  normalized_counts<-log2(counts(deseq2Data, normalized=TRUE)+1)
   
   row_medians_assayData <- Biobase::rowMedians(as.matrix(normalized_counts))
   
