@@ -1,0 +1,300 @@
+---
+title: "FastTrack user guide"
+output: html_notebook
+---
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+---
+
+
+## 1 Input files
+
+
+FastTrack needs two xlsx files to perform differential expression analysis :
+
+* rawCounts that contains the rawcounts of RNA strands
+* sampleData that contains information about the samples
+
+In the following, we describe the format that the two xlsx files must satisfy
+
+### rawCounts
+
+Below is an example of a simplified rawCounts.xlsx file with 2 genes and 2 samples.
+
+| RNA_ID| Sample_1| Sample_2|
+| :------------- | :-------------| :-------------|
+| 1007_s_at| 96| 94|
+| 1053_at| 18630| 22545|
+
+The first column name must be **exactly** "RNA_ID" and each row contains the ID of the RNA strands.
+
+In this example, the RNA_ID are 1007_s_at and 1053_at the type of ID is PROBEID (the list of supported IDs types is detailed later).
+
+The other columns are associated with the samples.
+
+The columns names are the names of the samples and the row are the counts of the associated gene. 
+
+You can choose the names you want for the samples but they **MUST NOT** contain spaces.
+
+In this example, the strand 1007_s_at is observed 96 times in Sample_1 and 94 times in Sample_2.
+
+
+### sampleData
+
+Below is an example of a simplified sampleData.xlsx file with 2 samples and two properties.
+
+| SampleID| Disease| IndividualID|
+| :------------- | :-------------| :-------------| 
+| Sample_1| invasive ductal carcinoma| Individual_1|
+| Sample_2| normal| Individual_2|
+
+
+The first column name must be **exactly** "SampleID" and each row contains **the same sample name** as in the rawCount file.
+
+The other columns are associated with the samples' properties.
+
+The columns names are the names of the properties and the row are the value of the properties for the considered sample. 
+
+You can choose the name you want for the properties but they **MUST NOT** contain spaces.
+
+In this example, we have two properties : Disease and IndividualID.
+
+
+---
+
+## 2 Usage
+
+### Running FastTrack on RStudio
+
+In the following, we display R code used by FastTrack (code is in the grey cells, white cells displays the output of the code and does not need to be run).
+
+To run the code you have to open the RStudio project (the file .Rproj) that was created during the installation and you can either:
+
+* Paste the code in RStudio console (bottom left panel) and press Enter
+* Or create a new R script (File -> New File -> R script) **in the same location as the project file (.Rproj)** and paste the code in RStudio Source Editor (top left panel), select the text of the code you want to run with the mouse and click on Run (or press Ctrl+Enter).You can have a look at the webpages [here](https://csu-r.github.io/Module1/running-code-in-rstudio.html) and [here](https://support.rstudio.com/hc/en-us/articles/200484448-Editing-and-Executing-Code-in-the-RStudio-IDE) for more details about running code in RStudio.
+
+We recommend the second option as it allows for keeping all the code that was executed in one file, which makes it easier to run the code again and keep track of what was done. If you chose the second option do not forget to regularly save the R script file
+
+### Step 1 : Import libraries
+
+```{r}
+library(hgu133plus2.db)
+library(pheatmap)
+library(ggplot2)
+library(DESeq2)
+library(readxl)
+library(writexl)
+library(tibble)
+library(scales)
+library(viridis)
+library(tidyr)
+```
+
+### Step 2 : Import FastTrack functions
+
+```{r}
+source("utils.R")
+```
+
+### Step 3 : Input information needed by FastTrack
+
+To perform differential analysis, FastTrack needs 5 input values:
+
+* *rawCountsFile* that contains the location of the xlsx rawCounts file
+* *sampleDataFile* that contains the location of the xlsx sampleData file
+* *ID_TYPE* that contains the type of ID for the RNA strands in the rawCountsFile it must be one of the value displayed below
+* *Compare* that contains the name of the property that will be compared the analysis 
+* *order* a vector that contains the order of comparison of the properties values 
+* *threshold* that contains the minimal number of read count to keep the considered gene/transcript
+* *saveFolder* that contains the location of the folder where the results will be saved
+
+
+```{r}
+rawCountsFile <- "RawCounts.xlsx"
+sampleDataFile <- "SampleData.xlsx"
+ID_TYPE <- "PROBEID"
+Compare <- "Disease"
+order <- c("normal", "invasive ductal carcinoma")
+threshold <- 30
+saveFolder <- "Results"
+```
+
+
+**Note : in the example above, we give the name of the xlsx files witout their path. This works only if the files are in the same folder as the RStudio project (the file .Rproj)**
+
+
+
+**Types of ID supoported by FastTrack :**
+
+```{r}
+print(columns(hgu133plus2.db))
+```
+
+
+### Step 4 : Set up differential analysis
+Below, we create the result folder and create a mapping between PROBEID and gene SYMBOL.
+
+```{r}
+dir.create(saveFolder)
+mapping <- build_mapping(ID_TYPE)
+```
+The messages <mark>_'select()' returned 1:many mapping between keys and columns_</mark> should be displayed. It means that the mappings were successful. 
+
+----------------------------
+
+**Types of ID supoported by FastTrack :**
+
+```{r}
+print(columns(hgu133plus2.db))
+```
+
+
+
+------------------
+
+We read the xlsx files and make sure that the sample names are the same between the two files.
+```{r}
+rawData <- read_raw_data(rawCountsFile, sampleDataFile, order)
+```
+The message <mark>_[1] TRUE_</mark> should be displayed after reading the raw data. If not it means that the sample names in the rawCount file and in the sampleData file are different.
+
+We apply a log2 transformation to the raw counts that will be used for the future plots. We use the log to smooth the raw counts and to avoid having extreme values that would make the plots harder to read. 
+```{r}
+logRawCounts <- log2(rawData$rawCounts + 1)
+```
+
+### Step 5 : Generate PCA
+
+```{r}
+PCA(logRawCounts, rawData$sampleData, Compare, saveFolder)
+```
+The PCA plot allows us to visualize if the samples have different distributions of RNA strands counts. In this case, we can see that the normal samples can be distinguished from the invasive_ductal_carcinoma using the first two PCA components. The plot is saved in the folder *saveFolder* as PCA.pdf 
+
+
+### Step 6 : Generate boxplot of the log2 of the raw Counts
+
+```{r}
+box_intensities(logRawCounts, saveFolder)
+
+```
+The boxplot of log2 raw counts displays the median, quartiles and outliers of raw counts for every sample. This allows us to see if some samples have drastically different distributions of raw counts than others. The plot is saved in the folder *saveFolder* as boxplot_log2_raw_counts.pdf 
+
+### Step 7 : Perform differential analysis and plot the histogram of normalized counts
+
+Below, we perform differential analysis and plot the normalized counts of RNA strands. Differential analysis and normalization are performed using the DESEQ2 package. The details of how the DESEQ2 package work can be found [here](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-014-0550-8).
+
+```{r}
+deseq2Data <- make_DEseq2DataSet(rawData$rawCounts, rawData$sampleData, Compare, threshold, saveFolder)
+```
+The histogram represents the distribution of the median of normalized counts of each RNA strands. The plot is saved in the folder *saveFolder* as hist_median_intensities.pdf 
+
+In this example, we can see that most of the RNA strands have a normalized raw count smaller than 8.
+
+The red vertical line is positioned at the log2 of the threshold defined by the user. Everything left to this bar will be filtered out before the differential analysis, allowing us to speed up the process and clean the data by removing strands that do no frequently appear in the data.
+
+If you want to filter out more (or less) RNA strands for differential analysis, you need the change the threshold value and run again the make_DEseq2DataSet function.
+
+Before saving and displaying the results of the differential analysis, we will generate a few more plots to control the noramlized data.
+
+### Step 8 : Generate boxplot of the deviations
+
+```{r}
+box_deviation(deseq2Data, saveFolder)
+```
+
+The boxplot above represents the deviation of normalized counts for each sample. The wider the box, the more deviation from the median is observed for the sample. The plot is saved in the folder *saveFolder* as boxplot_normalized_deviation.pdf 
+
+
+### Step 9 : Normalized PCA
+
+```{r}
+normalized_counts <- log2(counts(deseq2Data, normalized=TRUE) +1)
+normalized_PCA(normalized_counts, rawData$sampleData, Compare, saveFolder)
+
+```
+
+Even after normalization, the first two PCA components allows us to discriminate normal from invasive_ductal_carcimonia samples. The plot is saved in the folder *saveFolder* as PCA_normalized.pdf 
+
+### Step 10 : Plot the Heatmap
+
+```{r}
+heatmap(normalized_counts, rawData$sampleData, Compare, saveFolder)
+```
+
+The heatmap displays the distances between all samples and performs a hierarchical clustering of the samples by regrouping the most similar samples first. The distance between two samples is computed between the vectors of normalized counts of RNA strands of the associated sample. The plot is saved in the folder *saveFolder* as heatmap.pdf 
+
+For example let us consider the following samples and normalized raw counts of RNA strands:  
+
+
+| PROBEID| Sample_1| Sample_2|
+| :------------- | :-------------| :-------------|
+| 1007_s_at| 5| 8.8|
+| 1053_at| 16.3| 22.9|
+| 117_at| 1.7| 2.9|
+
+To compute the distance between Sample_1 and Sample_2, we compute the Manhattan distance between their columns vectors : 
+
+Manhattan[(5, 16.3, 1.7), (8.8, 22.9, 2.9)] = |5-8.8| + |16.3-22.9| + |1.7-2.9| = 3.8 + 6.6 + 1.2 = 11.6
+
+We use the Manhattan distance instead of the euclidean distance as it is more robust when considering high dimension vectors.
+
+### Step 11 : Generate and save the results of the differential analysis
+
+```{r}
+deseq2ResDF <- diff_Analysis(deseq2Results, deseq2Data, rawData$sampleData, Compare, mapping, saveFolder)
+```
+
+The variable *deseq2ResDF* contains the results of the differential analysis. The results are saved in an xlsx file where each row corresponds to a RNA and that has the following columns : 
+
+1. PROBEID
+2. SYMBOL
+3. baseMean : mean of normalized counts for all samples
+4. log2FoldChange : log2 fold change
+5. lfcSE : standard error
+6. stat : Wald statistic
+7. pvalue : Wald test p-value
+8. padj : Adjusted p-value
+
+
+### Step 12 : Plot the results of the differential analysis in 3 figures
+
+```{r}
+fold_vs_count(deseq2ResDF, saveFolder)
+```
+The plot is saved in the folder *saveFolder* as fold_vs_count.pdf 
+
+```{r}
+count_vs_fold(deseq2ResDF, saveFolder)
+```
+The plot is saved in the folder *saveFolder* as count_vs_fold.pdf 
+
+```{r}
+volcano(deseq2ResDF, saveFolder)
+```
+
+The plot is saved in the folder *saveFolder* as volcano.pdf 
+
+
+
+
+## 3 FAQ
+
+### 1) cannot open file ‘utils.R’: No such file or directory
+
+If you see the following error after executing source("utils.R") :
+
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
+</style>
+<div class = "blue">
+| source("utils.R")
+| Error in file(filename, "r", encoding = encoding) :
+|     cannot open the connection
+| In addition: Warning message:
+| In file(filename, "r", encoding = encoding) :
+|     cannot open file 'utils.R': No such file or directory
+</div>
+
+This error means that the file utils.R could not be found. Make sure the file utils.R is in the same folder as the project file (.Rproj).
