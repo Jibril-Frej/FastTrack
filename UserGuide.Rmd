@@ -79,6 +79,8 @@ We recommend the second option as it allows for keeping all the code that was ex
 
 ### Step 1 : Import libraries
 
+The first time you will run these lines, several messages will be printed. This is normal as long as there is no message that starts with *Error*.
+
 ```{r}
 library(hgu133plus2.db)
 library(pheatmap)
@@ -94,6 +96,9 @@ library(tidyr)
 
 ### Step 2 : Import FastTrack functions
 
+Here, we import functions that are defined in the file *utils.R*
+
+In the advanced user guide, we will have a closer look at these functions.
 ```{r}
 source("utils.R")
 ```
@@ -104,9 +109,9 @@ To perform differential analysis, FastTrack needs 5 input values:
 
 * *rawCountsFile* that contains the location of the xlsx rawCounts file
 * *sampleDataFile* that contains the location of the xlsx sampleData file
-* *ID_TYPE* that contains the type of ID for the RNA strands in the rawCountsFile it must be one of the value displayed below
-* *Compare* that contains the name of the property that will be compared the analysis 
-* *order* a vector that contains the order of comparison of the properties values 
+* *idType* that contains the type of ID for the RNA strands in the rawCountsFile it must be one of the value displayed below
+* *Compare* that contains the name of the property that will be compared
+* *order* a vector that contains the order of comparison of the properties values (control should be first)
 * *threshold* that contains the minimal number of read count to keep the considered gene/transcript
 * *saveFolder* that contains the location of the folder where the results will be saved
 
@@ -114,10 +119,10 @@ To perform differential analysis, FastTrack needs 5 input values:
 ```{r}
 rawCountsFile <- "RawCounts.xlsx"
 sampleDataFile <- "SampleData.xlsx"
-ID_TYPE <- "PROBEID"
+idType <- "PROBEID"
 Compare <- "Disease"
 order <- c("normal", "invasive ductal carcinoma")
-threshold <- 30
+threshold <- 5
 saveFolder <- "Results"
 ```
 
@@ -126,7 +131,7 @@ saveFolder <- "Results"
 
 
 
-**Types of ID supoported by FastTrack :**
+**Types of ID supported by FastTrack :**
 
 ```{r}
 print(columns(hgu133plus2.db))
@@ -138,7 +143,7 @@ Below, we create the result folder and create a mapping between PROBEID and gene
 
 ```{r}
 dir.create(saveFolder)
-mapping <- build_mapping(ID_TYPE)
+mapping <- build_mapping(idType)
 ```
 The messages <mark>_'select()' returned 1:many mapping between keys and columns_</mark> should be displayed. It means that the mappings were successful. 
 
@@ -242,8 +247,11 @@ We use the Manhattan distance instead of the euclidean distance as it is more ro
 
 ### Step 11 : Generate and save the results of the differential analysis
 
+Before generating the results, you need to specify the two property values you want to compare in the variable *CompareValues*. If the total number of property values is equal to two, just put the same values as in the variable *order*.
+
 ```{r}
-deseq2ResDF <- diff_Analysis(deseq2Results, deseq2Data, rawData$sampleData, Compare, mapping, saveFolder)
+CompareValues<-c("normal", "invasive ductal carcinoma")
+deseq2ResDF <- diff_Analysis(deseq2Results, deseq2Data, rawData$sampleData, Compare, mapping, saveFolder, CompareValues)
 ```
 
 The variable *deseq2ResDF* contains the results of the differential analysis. The results are saved in an xlsx file where each row corresponds to a RNA and that has the following columns : 
@@ -297,4 +305,23 @@ div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
 |     cannot open file 'utils.R': No such file or directory
 </div>
 
-This error means that the file utils.R could not be found. Make sure the file utils.R is in the same folder as the project file (.Rproj).
+This error means that the file utils.R could not be found. 
+Make sure the file utils.R is in the same folder as the project file (.Rproj).
+
+
+### 2) Error in testForValidKeytype(x, keytype
+
+If you see the following error after executing mapping <- build_mapping(idType) :
+
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
+</style>
+<div class = "blue">
+| mapping <- build_mapping(idType)
+| Error in testForValidKeytype(x, keytype) :
+|     Invalid keytype: PROBID. Please use the keytypes method to see a listing of valid arguments.
+</div>
+
+This error means that the value of idType that corresponds to the RNA ID type is not taken into account.
+Make sure that the value of idType is in the list displayed when running *print(columns(hgu133plus2.db))*.
+
