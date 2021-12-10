@@ -33,4 +33,6 @@ install.packages("tidyr")
 ```
 
 ## Sources
-Part of the code comes from : [https://genviz.org/module-04-expression/0004/02/01/DifferentialExpression/](https://genviz.org/module-04-expression/0004/02/01/DifferentialExpression/)
+Part of the code comes from : 
+[https://genviz.org/module-04-expression/0004/02/01/DifferentialExpression/](https://genviz.org/module-04-expression/0004/02/01/DifferentialExpression/)
+[https://bioconductor.org/packages/devel/workflows/vignettes/maEndToEnd/inst/doc/MA-Workflow.html](https://bioconductor.org/packages/devel/workflows/vignettes/maEndToEnd/inst/doc/MA-Workflow.html)
