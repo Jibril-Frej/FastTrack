@@ -32,6 +32,10 @@ install.packages("viridis")
 install.packages("tidyr")
 ```
 
+## Usage
+Download the repository and open the file UserGuide.nb.html (or AdvancedUserGuide.nb.html) with your browser and follow the instructions.
+
+
 ## Sources
 Part of the code comes from : 
 
