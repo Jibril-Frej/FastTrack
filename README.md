@@ -1,5 +1,7 @@
 # FastTrack
 
+Tutorial to perfrom Differential Gene Expression Analysis with R and RStudio.
+
 ## Install (Windows 10 only)
 Download and install R : [https://cran.r-project.org/bin/windows/base/](https://cran.r-project.org/bin/windows/base/)
 
